@@ -1,4 +1,4 @@
-name: PR Agent (Gemini)
+name: PR Reviwer Agent
 
 on:
   pull_request:
@@ -18,15 +18,14 @@ jobs:
     steps:
       - name: PR Agent action step
         uses: the-pr-agent/pr-agent@main
-        env:
-          # FIXED: Changed prefix from "google_ai_studio/" to "gemini/"
+      env:
           config.model: "gemini/gemini-1.5-flash"
           config.fallback_models: '["gemini/gemini-1.5-flash"]'
           
-          # FIXED: Replaced double underscores with a dot (.)
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CUSTOM_LLM_PROVIDER: "gemini" 
+          
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-          # Tool automations
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
