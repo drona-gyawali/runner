@@ -3,7 +3,6 @@ name: PR Reviewer Agent
 on:
   pull_request:
     types: [opened, reopened, ready_for_review]
-
   issue_comment:
     types: [created]
 
@@ -27,13 +26,15 @@ jobs:
       - name: Run PR Agent
         uses: the-pr-agent/pr-agent@main
         env:
-          config.model: "gemini/gemini-1.5-flash"
-          config.fallback_models: '["gemini/gemini-1.5-flash"]'
-
-          CUSTOM_LLM_PROVIDER: "gemini"
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          github_action_config.auto_review: "true"
-          github_action_config.auto_describe: "true"
-          github_action_config.pr_commands: "true"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CUSTOM_LLM_PROVIDER: "gemini"
+          
+          # Configuration as proper env vars (no dots)
+          CONFIG_MODEL: "gemini/gemini-1.5-flash"
+          CONFIG_FALLBACK_MODELS: '["gemini/gemini-1.5-flash"]'
+          
+          # PR Agent specific configs
+          GITHUB_ACTION_CONFIG_AUTO_REVIEW: "true"
+          GITHUB_ACTION_CONFIG_AUTO_DESCRIBE: "true"
+          GITHUB_ACTION_CONFIG_PR_COMMANDS: "true"
