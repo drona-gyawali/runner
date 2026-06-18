@@ -1,4 +1,4 @@
-name: PR Reviwer Agent
+name: PR Reviewer Agent
 
 on:
   pull_request:
@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: PR Agent action step
         uses: the-pr-agent/pr-agent@main
-      env:
+        env:
           config.model: "gemini/gemini-1.5-flash"
           config.fallback_models: '["gemini/gemini-1.5-flash"]'
           
