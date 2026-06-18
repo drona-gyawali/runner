@@ -27,14 +27,12 @@ jobs:
         uses: the-pr-agent/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CUSTOM_LLM_PROVIDER: "gemini"
           
-          # Configuration as proper env vars (no dots)
-          CONFIG_MODEL: "gemini/gemini-1.5-flash"
-          CONFIG_FALLBACK_MODELS: '["gemini/gemini-1.5-flash"]'
+          GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           
-          # PR Agent specific configs
-          GITHUB_ACTION_CONFIG_AUTO_REVIEW: "true"
-          GITHUB_ACTION_CONFIG_AUTO_DESCRIBE: "true"
-          GITHUB_ACTION_CONFIG_PR_COMMANDS: "true"
+          CONFIG__MODEL: "gemini/gemini-1.5-flash"
+          CONFIG__FALLBACK_MODELS: '["gemini/gemini-1.5-flash"]'
+          
+          GITHUB_ACTION_CONFIG__AUTO_REVIEW: "true"
+          GITHUB_ACTION_CONFIG__AUTO_DESCRIBE: "true"
+          GITHUB_ACTION_CONFIG__PR_COMMANDS: "true"
