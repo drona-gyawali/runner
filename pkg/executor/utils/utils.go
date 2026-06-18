@@ -136,6 +136,7 @@ func RunSandboxEnv(Ctx context.Context, CfgInitialization types.ExecReq, OutputL
 	hostConfig := &container.HostConfig{
 		Runtime: "runsc",
 		Binds:   bindRepo,
+		DNS: []string{"8.8.8.8", "1.1.1.1"},
 		Resources: container.Resources{
 			Memory:   SandboxMemory,
 			NanoCPUs: SandboxNanoCPUs,
