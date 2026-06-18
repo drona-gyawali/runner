@@ -8,13 +8,10 @@ on:
 
 jobs:
   pr_agent_job:
-    if: >
-      github.event.sender.type != 'Bot' &&
-      (
-        github.event_name == 'pull_request' ||
-        github.event.issue.pull_request != null
-      )
-
+    if: |
+      github.event.sender.type != 'Bot' && 
+      (github.event_name == 'pull_request' || github.event.issue.pull_request != null)
+    
     runs-on: ubuntu-latest
 
     permissions:
@@ -30,8 +27,9 @@ jobs:
           
           GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           
-          CONFIG__MODEL: "gemini/gemini-1.5-flash"
-          CONFIG__FALLBACK_MODELS: '["gemini/gemini-1.5-flash"]'
+          CONFIG__MODEL_PROVIDER: "google_ai_studio"
+          CONFIG__MODEL: "gemini-1.5-flash"
+          CONFIG__FALLBACK_MODELS: '["gemini-1.5-flash"]'
           
           GITHUB_ACTION_CONFIG__AUTO_REVIEW: "true"
           GITHUB_ACTION_CONFIG__AUTO_DESCRIBE: "true"
