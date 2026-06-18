@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/drona-gyawali/runner/pkg/config"
 	"github.com/drona-gyawali/runner/pkg/types"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 const (
@@ -73,6 +74,21 @@ func BuildExecLevels() [][]string {
 
 	return execLevels
 
+}
+
+
+type FlushWriter struct {
+	Writer  io.Writer
+	Flusher interface{ Flush() }
+}
+
+func (fw FlushWriter) Write (p []byte) (n int , err error) {
+	n , err = fw.Writer.Write(p)
+	if n > 0 {
+		fw.Flusher.Flush()
+	}
+
+	return n, err
 }
 
 func RunSandboxEnv(Ctx context.Context, CfgInitialization types.ExecReq, OutputLogStream io.Writer) error {
@@ -166,8 +182,14 @@ func RunSandboxEnv(Ctx context.Context, CfgInitialization types.ExecReq, OutputL
 	logOpts := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Timestamps: true}
 	logReader, err := cli.ContainerLogs(Ctx, resp.ID, logOpts)
 	if err == nil {
-		_, _ = io.Copy(OutputLogStream, logReader)
-		logReader.Close()
+		
+		defer logReader.Close()
+
+		var WriterLogs io.Writer  = OutputLogStream
+		if flusher , ok := OutputLogStream.(interface {Flush()}); ok {
+			WriterLogs = &FlushWriter{Writer: WriterLogs, Flusher: flusher}
+		}
+		_, _ = stdcopy.StdCopy(WriterLogs, WriterLogs, logReader)
 	}
 
 	statusCh, errorCh := cli.ContainerWait(Ctx, resp.ID, container.WaitConditionNotRunning)
