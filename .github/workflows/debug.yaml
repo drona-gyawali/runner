@@ -1,0 +1,19 @@
+name: Debug PR Comments
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  debug:
+    # Only run for comments on pull requests
+    if: github.event.issue.pull_request != null
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print comment
+        run: |
+          echo "Workflow triggered!"
+          echo "Comment: ${{ github.event.comment.body }}"
+          echo "User: ${{ github.event.comment.user.login }}"
