@@ -1,5 +1,6 @@
 title = "Enterprise Monorepo Deployment Pipeline"
 version = "2.4.0"
+shell = "false" #default true
 
 # --- BACKEND TRACK ---
 [jobs.backend_lint]
