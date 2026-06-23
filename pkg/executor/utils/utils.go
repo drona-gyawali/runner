@@ -2,14 +2,23 @@ package utils
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"log"
 
-	"github.com/drona-gyawali/runner/pkg/config"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/drona-gyawali/runner/pkg/types"
 )
 
-func BuildExecLevels() [][]string {
-	cfg := config.MustLoad()
+const (
+	SandboxMemory   = 2 * 1024 * 1024 * 1024
+	SandboxNanoCPUs = 2000000000
+)
+
+func BuildExecLevels(cfg types.Jobs) [][]string {
 
 	forward_graphs := make(map[string][]string)
 	in_degree := make(map[string]int)
@@ -65,5 +74,140 @@ func BuildExecLevels() [][]string {
 
 }
 
-func  RunSandboxEnv (Ctx context.Context, CfgInitialization types.ExecReq) error {
+type FlushWriter struct {
+	Writer  io.Writer
+	Flusher interface{ Flush() }
+}
+
+func (fw FlushWriter) Write(p []byte) (n int, err error) {
+	n, err = fw.Writer.Write(p)
+	if n > 0 {
+		fw.Flusher.Flush()
+	}
+
+	return n, err
+}
+
+func CreateBaseEnvironmnet(Cfg types.ExecReq) ([]string, error) {
+
+	if !Cfg.Shell {
+		return Cfg.Cmd, nil
+	}
+
+	var joinedCmd string
+	for i, c := range Cfg.Cmd {
+		if i > 0 {
+			joinedCmd += " && "
+		}
+		joinedCmd += c
+	}
+
+	return []string{"sh", "-c", joinedCmd}, nil
+
+}
+
+func RunSandboxEnv(Ctx context.Context, CfgInitialization types.ExecReq, OutputLogStream io.Writer) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		log.Fatalf("Sandbox initilization failed %s", err)
+	}
+
+	defer cli.Close()
+
+	_, err = cli.ImageInspect(Ctx, CfgInitialization.Image)
+
+	if err != nil {
+		log.Printf("Image not found locally")
+
+		reader, err := cli.ImagePull(Ctx, CfgInitialization.Image, image.PullOptions{})
+		if err != nil {
+			return fmt.Errorf("Failed to auto-pull image for runner %s", err)
+		}
+
+		_, _ = io.Copy(io.Discard, reader)
+		reader.Close()
+		log.Printf("Image Pulled Successfully")
+	}
+
+	cmd, err := CreateBaseEnvironmnet(CfgInitialization)
+	if err != nil {
+		return fmt.Errorf("Failed to create supported Base environment %s", err)
+	}
+	sandboxConfig := &container.Config{
+		Image:        CfgInitialization.Image,
+		Cmd:          cmd,
+		WorkingDir:   "/workspace",
+		Tty:          false,
+		AttachStdin:  true,
+		AttachStderr: true,
+		AttachStdout: true,
+	}
+
+	bindRepo := []string{fmt.Sprintf("%s:/workspace", CfgInitialization.ProjectPath)}
+	hostConfig := &container.HostConfig{
+		Runtime: "runsc",
+		Binds:   bindRepo,
+		DNS:     []string{"8.8.8.8", "1.1.1.1"},
+		Resources: container.Resources{
+			Memory:   SandboxMemory,
+			NanoCPUs: SandboxNanoCPUs,
+		},
+	}
+
+	containerName := fmt.Sprintf("isolated-runner-%s", CfgInitialization.SandboxId)
+
+	_ = cli.ContainerRemove(Ctx, containerName, container.RemoveOptions{
+		Force:         true,
+		RemoveVolumes: true,
+	})
+
+	resp, err := cli.ContainerCreate(Ctx, sandboxConfig, hostConfig, nil, nil, containerName)
+	if err != nil {
+		return fmt.Errorf("Failed to provision sandbox environment %w", err)
+	}
+
+	defer func() {
+		removeOpts := container.RemoveOptions{
+			RemoveVolumes: true,
+			RemoveLinks:   false,
+			Force:         true,
+		}
+		err = cli.ContainerRemove(context.Background(), resp.ID, removeOpts)
+		if err != nil {
+			log.Printf("Failed to delete resources %s", err)
+		}
+	}()
+
+	err = cli.ContainerStart(Ctx, resp.ID, container.StartOptions{})
+	if err != nil {
+		return fmt.Errorf("Failed to boot sandbox %w", err)
+	}
+
+	logOpts := container.LogsOptions{ShowStdout: true, ShowStderr: true, Follow: true, Timestamps: true}
+	logReader, err := cli.ContainerLogs(Ctx, resp.ID, logOpts)
+	if err == nil {
+
+		defer logReader.Close()
+
+		var WriterLogs io.Writer = OutputLogStream
+		if flusher, ok := OutputLogStream.(interface{ Flush() }); ok {
+			WriterLogs = &FlushWriter{Writer: WriterLogs, Flusher: flusher}
+		}
+		_, _ = stdcopy.StdCopy(WriterLogs, WriterLogs, logReader)
+	}
+
+	statusCh, errorCh := cli.ContainerWait(Ctx, resp.ID, container.WaitConditionNotRunning)
+
+	select {
+	case err := <-errorCh:
+		if err != nil {
+			return fmt.Errorf("Unhandled termination error occured in sanbox execution %w", err)
+		}
+	case success := <-statusCh:
+		if success.StatusCode != 0 {
+			return fmt.Errorf("Sandbox return non-zero termination error %d", success.StatusCode)
+		}
+	}
+
+	return nil
 }

@@ -1,57 +1,18 @@
-title = "Enterprise Monorepo Deployment Pipeline"
-version = "2.4.0"
+# NOTE: This specific file is a reference template and does not affect live project execution.
+# It serves as a blueprint to show how your pipeline workflow configurations must be structured.
+# 
+# To create an active pipeline, copy this structure into your project root at:
+# .runner/workflows/your_ci.toml
 
-# --- BACKEND TRACK ---
-[jobs.backend_lint]
-command = "golangci-lint run ./api/..."
+title = "Production Python Test Suite"
+version = "1.0.0"
+image = "python:3.12-slim"
+shell = true
+
+[jobs.install_reqs]
+command = "pip install -r requirements.txt"
 needs = []
 
-[jobs.backend_unit_test]
-command = "go test -v ./api/..."
-needs = []
-
-[jobs.backend_compile]
-command = "go build -o server ./api/main.go"
-needs = ["backend_lint", "backend_unit_test"]
-
-
-# --- FRONTEND TRACK ---
-[jobs.frontend_install]
-command = "npm ci --prefix ./client"
-needs = []
-
-[jobs.frontend_lint]
-command = "npm run lint --prefix ./client"
-needs = ["frontend_install"]
-
-[jobs.frontend_compile]
-command = "npm run build --prefix ./client"
-needs = ["frontend_install"]
-
-
-# --- INTEGRATION & SECURITY BOTTLENECK ---
-[jobs.docker_build_images]
-command = "docker build -t app/backend . && docker build -t app/frontend ./client"
-needs = ["backend_compile", "frontend_compile", "frontend_lint"]
-
-[jobs.security_snyk_scan]
-command = "snyk test --docker app/backend"
-needs = ["docker_build_images"]
-
-[jobs.e2e_integration_tests]
-command = "docker-compose up --abort-on-container-exit"
-needs = ["docker_build_images"]
-
-
-# --- DEPLOYMENT STAGES ---
-[jobs.deploy_staging]
-command = "terraform apply -auto-approve vars/staging.tfvars"
-needs = ["e2e_integration_tests", "security_snyk_scan"]
-
-[jobs.smoke_tests]
-command = "curl -f https://staging.app.internal/health"
-needs = ["deploy_staging"]
-
-[jobs.promote_to_production]
-command = "ansible-playbook -i hosts deploy-prod.yml"
-needs = ["smoke_tests"]
+[jobs.run_pytest]
+command = "pytest tests/"
+needs = ["install_reqs"]
