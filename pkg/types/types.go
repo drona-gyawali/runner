@@ -10,7 +10,8 @@ type JobsConfig struct {
 type Jobs struct {
 	Title   string                `toml:"title" yaml:"title" json:"title" env-required:"true"`
 	Version string                `toml:"version" json:"version" yaml:"version" env-required:"true"`
-	Shell   bool				  `toml:"shell" json:"shell" yaml:"shell" env:"SHELL_ENABLED" env-default:"true"`
+	Shell   bool                  `toml:"shell" json:"shell" yaml:"shell" env:"SHELL_ENABLED" env-default:"true"`
+	Image   string                `toml:"image" json:"image" yaml:"image" env-required:"true"`
 	Jobs    map[string]JobsConfig `toml:"jobs" json:"jobs" yaml:"jobs" env-required:"true"`
 }
 
@@ -19,5 +20,5 @@ type ExecReq struct {
 	ProjectPath string
 	Image       string
 	Cmd         []string
-	Shell 		bool
+	Shell       bool
 }

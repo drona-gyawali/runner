@@ -1,0 +1,17 @@
+title = "Python Fixture Verification Suite"
+version = "1.0.0"
+image = "python:3.12-slim"
+shell = true
+
+[jobs.install_dependencies]
+command = "pip install --target=/workspace/.pip_packages -r requirements.txt"
+needs = []
+
+[jobs.run_linter]
+# Flake8 is lightweight and lets us check files instantly without dependencies
+command = "pip install flake8 && flake8 tests/"
+needs = []
+
+[jobs.run_unit_tests]
+command = "PYTHONPATH=/workspace/.pip_packages /workspace/.pip_packages/bin/pytest tests/"
+needs = ["install_dependencies", "run_linter"]

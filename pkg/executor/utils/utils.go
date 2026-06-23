@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/drona-gyawali/runner/pkg/config"
 	"github.com/drona-gyawali/runner/pkg/types"
 )
 
@@ -19,8 +18,7 @@ const (
 	SandboxNanoCPUs = 2000000000
 )
 
-func BuildExecLevels() [][]string {
-	cfg := config.MustLoad()
+func BuildExecLevels(cfg types.Jobs) [][]string {
 
 	forward_graphs := make(map[string][]string)
 	in_degree := make(map[string]int)
@@ -154,7 +152,6 @@ func RunSandboxEnv(Ctx context.Context, CfgInitialization types.ExecReq, OutputL
 			Memory:   SandboxMemory,
 			NanoCPUs: SandboxNanoCPUs,
 		},
-		CapDrop: []string{"ALL"},
 	}
 
 	containerName := fmt.Sprintf("isolated-runner-%s", CfgInitialization.SandboxId)

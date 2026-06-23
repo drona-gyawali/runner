@@ -43,3 +43,6 @@ vendor/
 *.sw?
 
 .devcontainer
+__pycache__/
+*.pytest_cache
+*.pip_packages
