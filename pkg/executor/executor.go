@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/drona-gyawali/runner/pkg/executor/utils"
 	"github.com/drona-gyawali/runner/pkg/types"
@@ -23,8 +24,9 @@ func PipelineRunner(Ctx context.Context, Jobs types.Jobs, ProjectPath string) er
 	tarImg := Jobs.Image
 
 	for i, level := range execLevels {
-		var wg sync.WaitGroup
-		errorChan := make(chan error, len(level))
+
+		g, ctxWithCancel := errgroup.WithContext(Ctx)
+
 		for _, jobName := range level {
 			Jconfig := Jobs.Jobs[jobName]
 			sandboxConfig := types.ExecReq{
@@ -35,27 +37,25 @@ func PipelineRunner(Ctx context.Context, Jobs types.Jobs, ProjectPath string) er
 				Cmd:         []string{Jconfig.Command},
 			}
 
-			wg.Add(1)
-			go func(spec types.ExecReq, name string) {
+			spec := sandboxConfig
+			name := jobName
 
-				defer wg.Done()
+			g.Go(func() error {
+
 				log.Printf("[%s] Spawning isolated gVisor container runtime...", name)
-				err := utils.RunSandboxEnv(Ctx, spec, os.Stdout)
+				err := utils.RunSandboxEnv(ctxWithCancel, spec, os.Stdout)
 				if err != nil {
-					errorChan <- fmt.Errorf("Workflow %s failed %w", name, err)
+					return fmt.Errorf("Workflow %s failed %w", name, err)
 				}
 				log.Printf("[%s] Container execution completed cleanly.", name)
-			}(sandboxConfig, jobName)
+				return nil
+			})
 		}
 
-		wg.Wait()
-		close(errorChan)
-
-		for err := range errorChan {
-			if err != nil {
-				return fmt.Errorf("Workflow saw error at level %d due to %w", i, err)
-			}
+		if err := g.Wait(); err != nil {
+			return fmt.Errorf("Workflow saw error at level %d due to %w", i, err)
 		}
+
 	}
 	log.Print("Workflow execution has been completed")
 	return nil
